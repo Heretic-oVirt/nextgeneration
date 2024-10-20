@@ -1,0 +1,62 @@
+variant: fcos
+version: 1.4.0
+storage:
+  files:
+    - path: /etc/sysconfig/custom-install
+      mode: 0644
+      contents:
+        local: custom-install.sysconfig
+    - path: /usr/local/bin/pre-install-hook
+      mode: 0644
+      contents:
+        local: pre-install-hook.sh
+    - path: /usr/local/bin/install-hook
+      mode: 0755
+      contents:
+        local: install-hook.sh
+    - path: /usr/local/bin/post-install-hook
+      mode: 0644
+      contents:
+        local: post-install-hook.sh
+systemd:
+  units:
+    - name: rpm-ostree-countme.timer
+      enabled: false
+      mask: true
+    - name: fwupd-refresh.timer
+      enabled: false
+      mask: true
+    - name: zincati.service
+      enabled: false
+      mask: true
+    - name: custom-install.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Run CoreOS Installer via custom scripts
+        Requires=coreos-installer-pre.target
+        After=coreos-installer-pre.target
+        OnFailure=emergency.target
+        OnFailureJobMode=replace-irreversibly
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        EnvironmentFile=/etc/sysconfig/custom-install
+        ExecStart=/usr/local/bin/install-hook
+        StandardOutput=kmsg+console
+        StandardError=kmsg+console
+
+        [Install]
+        RequiredBy=default.target
+passwd:
+  users:
+    - name: instadmin
+      gecos: Installation Management Account
+      groups:
+          - sudo
+          - wheel
+      ssh_authorized_keys:
+          - ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBABuG9cJmQajdDokyk0C/v2bla9Z5TPJTBU0iLVQMyyUbvP+NHb0TKN3Mwex+M0bPA+LVEbgj+6gWw+yf/8CR3p3hACiiEu4qgFihXJdP69DBCv2zU/noDj6xN08m3+P9iwK/YdxQ4q2EpAqVX7B+r1sYypttXrUF64R0vLXoz6+WtQOdQ== root@twilight.mgmt.private
+      password_hash: "$6$9KNiJU4z0CxJ1x4B$OSBoCy.1BEt54IpfHP78M1W24g9oMQf5uDWnnEBtyAT0mRDh3TiermE5ymOswlWVvrxqCDHvjOgphupLVTiVT/"
