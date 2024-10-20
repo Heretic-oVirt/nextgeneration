@@ -1,0 +1,167 @@
+variant: fcos
+version: 1.4.0
+systemd:
+  units:
+    - name: ctrl-alt-del.target
+      mask: true
+    - name: docker.socket
+      enabled: false
+    - name: docker.service
+      mask: true
+    - name: rpm-ostree-countme.timer
+      enabled: false
+      mask: true
+    - name: fwupd-refresh.timer
+      enabled: false
+      mask: true
+    - name: zincati.service
+      enabled: false
+      mask: true
+    - name: remove-layered-packages.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Add and activate an RPM-OStree layer to remove embedded packages
+        After=network-online.target
+        Requires=network-online.target
+        # We run after `systemd-machine-id-commit.service` to ensure that
+        # `ConditionFirstBoot=true` services won't rerun on the next boot.
+        After=systemd-machine-id-commit.service
+        # We run before `zincati.service` to avoid conflicting rpm-ostree transactions.
+        Before=zincati.service
+        # Run before remote login is possible
+        Before=sshd.service
+        # Do not execute anymore if it was already installed
+        ConditionPathExists=!/var/lib/%N.stamp
+        
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        EnvironmentFile=/etc/sysconfig/layered-packages-kargs
+        ExecStart=/usr/bin/bash -c '/usr/bin/test "x${REMOVE_RPM_PACKAGES}" != "x" && /usr/bin/rpm-ostree override remove $REMOVE_RPM_PACKAGES || true'
+        ExecStartPost=/usr/bin/touch /var/lib/%N.stamp
+        ExecStartPost=/usr/bin/bash -c '/usr/bin/rpm-ostree status --pending-exit-77 || /usr/bin/systemctl --no-block reboot'
+        
+        [Install]
+        # Run before remote login is possible
+        RequiredBy=sshd.service
+        WantedBy=multi-user.target
+    - name: replace-layered-packages.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Add and activate an RPM-OStree layer to replace embedded packages
+        # Run after unwanted embedded RPM packages have been removed
+        After=network-online.target remove-layered-packages.service
+        Requires=network-online.target remove-layered-packages.service
+        # We run before `zincati.service` to avoid conflicting rpm-ostree transactions.
+        Before=zincati.service
+        # Run before remote login is possible
+        Before=sshd.service
+        # Do not execute anymore if it was already installed
+        ConditionPathExists=!/var/lib/%N.stamp
+        
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        EnvironmentFile=/etc/sysconfig/layered-packages-kargs
+        ExecStart=/usr/bin/bash -c '/usr/bin/test "x${REPLACE_RPM_PACKAGES}" != "x" && /usr/bin/rpm-ostree override replace --experimental --from repo=updates $REPLACE_RPM_PACKAGES || true'
+        ExecStartPost=/usr/bin/touch /var/lib/%N.stamp
+        ExecStartPost=/usr/bin/bash -c '/usr/bin/rpm-ostree status --pending-exit-77 || /usr/bin/systemctl --no-block reboot'
+        
+        [Install]
+        # Run before remote login is possible
+        RequiredBy=sshd.service
+        WantedBy=multi-user.target
+    - name: add-layered-packages.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Add and activate an RPM-OStree layer to install additional packages
+        # Run after embedded RPM packages have been replaced
+        After=network-online.target replace-layered-packages.service
+        Requires=network-online.target replace-layered-packages.service
+        # We run before `zincati.service` to avoid conflicting rpm-ostree transactions.
+        Before=zincati.service
+        # Run before remote login is possible
+        Before=sshd.service
+        # Do not execute anymore if it was already installed
+        ConditionPathExists=!/var/lib/%N.stamp
+        
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        EnvironmentFile=/etc/sysconfig/layered-packages-kargs
+        ExecStart=/usr/bin/bash -c '/usr/bin/test "x${ADD_RPM_PACKAGES}" != "x" && /usr/bin/rpm-ostree install --allow-inactive --idempotent $ADD_RPM_PACKAGES || true'
+        ExecStartPost=/usr/bin/touch /var/lib/%N.stamp
+        ExecStartPost=/usr/bin/bash -c '/usr/bin/rpm-ostree status --pending-exit-77 || /usr/bin/systemctl --no-block reboot'
+        
+        [Install]
+        # Run before remote login is possible
+        RequiredBy=sshd.service
+        WantedBy=multi-user.target
+    - name: setup-kargs.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Configure required kargs
+        # Run after additional RPM packages have been installed
+        After=network-online.target add-layered-packages.service
+        Requires=network-online.target add-layered-packages.service
+        # We run before `zincati.service` to avoid conflicting rpm-ostree transactions.
+        Before=zincati.service
+        # Run before remote login is possible
+        Before=sshd.service
+        # Do not execute anymore if it was already installed
+        ConditionPathExists=!/var/lib/%N.stamp
+        
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        EnvironmentFile=/etc/sysconfig/layered-packages-kargs
+        ExecStart=/usr/bin/bash -c 'for karg in $REMOVE_KARGS; do /usr/bin/rpm-ostree kargs --delete-if-present="$$karg"; done'
+        ExecStart=/usr/bin/bash -c 'for karg in $REPLACE_KARGS; do /usr/bin/rpm-ostree kargs --replace="$$karg"; done'
+        ExecStart=/usr/bin/bash -c 'for karg in $ADD_KARGS; do /usr/bin/rpm-ostree kargs --append-if-missing="$$karg"; done'
+        ExecStartPost=/usr/bin/touch /var/lib/%N.stamp
+        ExecStartPost=/usr/bin/bash -c '/usr/bin/rpm-ostree status --pending-exit-77 || /usr/bin/systemctl --no-block reboot'
+        
+        [Install]
+        # Run before remote login is possible
+        RequiredBy=sshd.service
+        WantedBy=multi-user.target
+    - name: setup-layered-services.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Enable services added in an RPM-OStree layer
+        # Run after required RPM dependencies have been installed
+        After=network-online.target setup-kargs.service
+        Requires=network-online.target setup-kargs.service
+        # We run before `zincati.service` to avoid conflicting rpm-ostree transactions.
+        Before=zincati.service
+        # Run before remote login is possible
+        Before=sshd.service
+        # Do not execute anymore if it was already installed
+        ConditionPathExists=!/var/lib/%N.stamp
+        
+        [Service]
+        Type=oneshot
+        EnvironmentFile=/etc/sysconfig/layered-packages-kargs
+        ExecStart=/usr/bin/bash -c 'for unit in $MASK_UNITS; do /usr/bin/systemctl list-unit-files "$$unit" > /dev/null 2>&1 && /usr/bin/systemctl --now mask "$$unit"; done'
+        ExecStart=/usr/bin/bash -c 'for unit in $DISABLE_UNITS; do /usr/bin/systemctl list-unit-files "$$unit" > /dev/null 2>&1 && /usr/bin/systemctl --now disable "$$unit"; done'
+        ExecStart=/usr/bin/bash -c 'for unit in $ENABLE_UNITS; do /usr/bin/systemctl list-unit-files "$$unit" > /dev/null 2>&1 && /usr/bin/systemctl --now enable "$$unit"; done'
+        ExecStartPost=/usr/bin/touch /var/lib/%N.stamp
+        
+        [Install]
+        # Run before remote login is possible
+        RequiredBy=sshd.service
+        WantedBy=multi-user.target
+passwd:
+  users:
+    - name: hvpadmin
+      gecos: HVP Administration Account
+      groups:
+          - sudo
+      ssh_authorized_keys:
+          - ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBABuG9cJmQajdDokyk0C/v2bla9Z5TPJTBU0iLVQMyyUbvP+NHb0TKN3Mwex+M0bPA+LVEbgj+6gWw+yf/8CR3p3hACiiEu4qgFihXJdP69DBCv2zU/noDj6xN08m3+P9iwK/YdxQ4q2EpAqVX7B+r1sYypttXrUF64R0vLXoz6+WtQOdQ== root@twilight.mgmt.private
+      password_hash: "$6$EngnSSn5$DiapvymRZ579Tt6pNBgRwT7D7PTDzWkT3ffKUO1U1qMloraFsg7jI6WfdM1oddxDvW9AFmBMKNOG1ylW7KiFU."
