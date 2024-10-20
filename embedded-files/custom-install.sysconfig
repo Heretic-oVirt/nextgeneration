@@ -1,0 +1,33 @@
+# Built-in variable defaults for HVP custom CoreOS installation procedure (pre/inst/post scripts)
+# Embedded Ignition file location
+embedded_ign_source="/run/media/iso/live-files/node.ign"
+# List of configuration fragments (file names) to be retrieved (in order) from the same place where the Ignition file is coming from
+# Note: if the Ignition is retrieved from network, then a further file name hvp_parameters_xxxxxxxxxxxx.sh is appended to this list (with xxxxxxxxxxxx being the MAC address of the NIC used to retrieve the Ignition file)
+ign_custom_frags="hvp_parameters.sh"
+# Disk initialization strategy, one of none, all, os, extra, used*
+default_disk_wiping="used"
+# OS-disk assignment strategy, one of first, last, smallest*, last-smallest, sdX (with sdX being the actual device basename)
+default_nodeosdisk="smallest"
+# Extra-disk assignment strategy for node-local storage, one of skip, largest*, smallest, sdX (with sdX being the actual device basename)
+default_extradisk_localst="largest"
+# Extra-disk assignment strategy for replicated storage, one of skip, largest, smallest*, sdX (with sdX being the actual device basename)
+default_extradisk_replicatedst="smallest"
+# Timezone, one of the recognized timezones in /usr/share/zoneinfo/
+default_timezone="UTC"
+# Hostname assignment logic, one of fixed, automated*
+default_hostname_assignment="automated"
+# Hostname for fixed or prefix for automated hostname generation
+default_hostname="node"
+# Keyboard layout, one of the maps available in /usr/lib/kbd/keymaps/xkb/
+default_kblayout="us"
+# Packages and kernel arguments to remove/replace/add
+default_removepkgs=""
+default_replacepkgs=""
+default_addpkgs=""
+default_removekargs=""
+default_replacekargs=""
+default_addkargs=""
+# Units to mask/disable/enable
+default_masksvcs=""
+default_disablesvcs=""
+default_enablesvcs=""
