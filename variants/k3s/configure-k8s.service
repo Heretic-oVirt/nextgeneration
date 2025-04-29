@@ -1,0 +1,91 @@
+[Unit]
+Description=Configure further required K8s components
+# Run after required RPM dependencies have been installed, K8s has been installed and the configuration files have been customized
+After=network-online.target install-k3s.service customize-k8s.service
+Requires=network-online.target install-k3s.service customize-k8s.service
+# Execute only when manually allowed
+# Note: This should be manually allowed only after all desired control-plane nodes have joined the cluster and the k3s-settings/k8s-addons files have been updated/reviewed
+ConditionPathExists=/etc/sysconfig/configure-k8s.allowed
+# Do not execute anymore if it was already installed
+ConditionPathExists=!/var/lib/%N.stamp
+
+[Service]
+Type=oneshot
+TimeoutStartSec=infinity
+# Note: the k8s-addons environment file is used also to set up the SUC plan for CoreOS update
+EnvironmentFile=/etc/sysconfig/k8s-addons
+# Note: the k3s-settings environment file is needed only to set up the SUC plans for K3s update
+EnvironmentFile=/etc/sysconfig/k3s-settings
+# Note: Helm invocations are made in an upgrade-compatible manner
+# Note: Helm is run with --atomic which implies --wait and is provided with an explicit timeout
+# TODO: add MinIO deployment
+# TODO: add CloudNativePG deployment
+# TODO: add Keycloak+https://github.com/adorsys/keycloak-config-cli/tree/main/contrib/charts/keycloak-config-cli deployment
+# TODO: add pgAdmin deployment
+# TODO: add Valkey deployment  with https://github.com/hyperspike/valkey-operator
+# TODO: add RabbitMQ deployment
+# TODO: add ElasticSearch deployment
+# TODO: add Onlyoffice deployment
+# TODO: add Nextcloud deployment
+# TODO: add Metasfresh deployment (provide custom Helm chart which does not deploy from-scratch already existing services)
+# TODO: add Velero deployment with a proper configuration for all the above mentioned services' data
+# TODO: add kube-prometheus-stack as a monitoring solution with a proper configuration for all the above mentioned services
+# TODO: add optional FleetDM (needs MySQL)
+# Note: check that no SUC-based K3s upgrades are ongoing - fail otherwise
+ExecStartPre=/usr/bin/bash -c '/usr/local/bin/kubectl get nodes -o json | jq ".items[].metadata.labels" | grep -wq "hvp[.]io/k3s-upgrade" && false || true'
+# Note: applying custom label to all nodes to inhibit kured-based reboots and SUC-based K3s upgrades from proceeeding while we are running
+ExecStartPre=/usr/local/bin/kubectl label nodes --all --overwrite hvp.io/k8s-upgrade=true
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_KURED_VERSION}" != "x" && /usr/local/bin/helm repo add --force-update kubereboot https://kubereboot.github.io/charts || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_KUBEVIPCP_VERSION}${INSTALL_KUBEVIPCC_VERSION}" != "x" && /usr/local/bin/helm repo add --force-update kube-vip https://kube-vip.github.io/helm-charts || true'
+ExecStart=/usr/local/bin/helm repo add --force-update jetstack https://charts.jetstack.io
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_COREDNSK8SGATEWAY_VERSION}" != "x" && /usr/local/bin/helm repo add --force-update k8s_gateway https://ori-edge.github.io/k8s_gateway/ || true'
+ExecStart=/usr/local/bin/helm repo add --force-update ingress-nginx https://kubernetes.github.io/ingress-nginx
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_OPENEBSLOCAL_VG}${INSTALL_OPENEBSREPLICATED_DISK}" != "x" && /usr/local/bin/helm repo add --force-update openebs https://openebs.github.io/openebs || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_HEADLAMP_VERSION}" != "x" && /usr/local/bin/helm repo add --force-update headlamp https://headlamp-k8s.github.io/headlamp/ || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_MIRRORS_VERSION}" != "x" && /usr/local/bin/helm repo add --force-update kts https://charts.kts.studio || true'
+ExecStart=/usr/local/bin/helm repo update
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_KURED_VERSION}" != "x" && /usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} kured kubereboot/kured --create-namespace --namespace kured-system --version ${INSTALL_KURED_VERSION} --values /etc/rancher/k3s/hvp/kured-values.yaml || true'
+# TODO: switch to system-update-controller Helm chart as soon as available
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/download/${INSTALL_SUC_VERSION}/system-upgrade-controller.yaml || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl -n system-upgrade rollout status --timeout=${ACTIONS_TIMEOUT} deployment/system-upgrade-controller || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/download/${INSTALL_SUC_VERSION}/crd.yaml || true'
+# Note: changing the fcos secret (by virtue of a different literal SUC_TARGET_FCOS_VERSION) will cause the SUC plan to be considered "new" and to be re-run
+ExecStart=-/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl -n system-upgrade delete secret fcos || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl -n system-upgrade create secret generic fcos --from-file=upgrade.sh=/etc/rancher/k3s/hvp/fcos-upgrade.sh --from-literal targetVersion=${SUC_TARGET_FCOS_VERSION} || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl apply -f /etc/rancher/k3s/hvp/fcos-suc-plan.yaml || true'
+# Note: changing the k3s secret (by virtue of different literal INSTALL_K3S_VERSION, INSTALL_ETCDCTL_VERSION, INSTALL_HELM_VERSION) will cause the SUC plan to be considered "new" and to be re-run
+ExecStart=-/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl -n system-upgrade delete secret k3s || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl -n system-upgrade create secret generic k3s --from-file=upgrade.sh=/etc/rancher/k3s/hvp/k3s-upgrade.sh --from-file=prepare.sh=/etc/rancher/k3s/hvp/k3s-prepare.sh --from-literal k3sChannel=${INSTALL_K3S_CHANNEL} --from-literal k3sVersion=${INSTALL_K3S_VERSION} --from-literal etcdctlVersion=${INSTALL_ETCDCTL_VERSION} --from-literal helmVersion=${INSTALL_HELM_VERSION} || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_SUC_VERSION}" != "x" && /usr/local/bin/kubectl apply -f /etc/rancher/k3s/hvp/k3s-suc-plan.yaml || true'
+# Note: Kube-VIP Control Plane published chart is not always up-to-date - working around it with a manual download
+#ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_KUBEVIPCP_VERSION}" != "x" && /usr/bin/curl -o /tmp/kube-vip-${INSTALL_KUBEVIPCP_VERSION}.tgz -L https://github.com/kube-vip/helm-charts/releases/download/kube-vip-${INSTALL_KUBEVIPCP_VERSION}/kube-vip-${INSTALL_KUBEVIPCP_VERSION}.tgz || true'
+#ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_KUBEVIPCP_VERSION}" != "x" && /usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} kubevipcp /tmp/kube-vip-${INSTALL_KUBEVIPCP_VERSION}.tgz --create-namespace --namespace kube-vip-system --values /etc/rancher/k3s/hvp/kubevipcp-values.yaml || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_KUBEVIPCP_VERSION}" != "x" && /usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} kubevipcp kube-vip/kube-vip --create-namespace --namespace kube-vip-system --version ${INSTALL_KUBEVIPCP_VERSION} --values /etc/rancher/k3s/hvp/kubevipcp-values.yaml || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_KUBEVIPCC_VERSION}" != "x" && /usr/local/bin/kubectl apply -f /etc/rancher/k3s/hvp/kubevipcc-configmap.yaml || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_KUBEVIPCC_VERSION}" != "x" && /usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} kubevipcc kube-vip/kube-vip-cloud-provider --create-namespace --namespace kube-vip-system --version ${INSTALL_KUBEVIPCC_VERSION} --values /etc/rancher/k3s/hvp/kubevipcc-values.yaml || true'
+# Note: Cert-Manager has a special hardcoded timeout since it can be quite slow in rolling out
+ExecStart=/usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout 15m cert-manager jetstack/cert-manager --create-namespace --namespace cert-manager --version v${INSTALL_CERTMANAGER_VERSION} --values /etc/rancher/k3s/hvp/cert-manager-values.yaml
+# Note: Cert-Manager has a special hardcoded timeout since it can be quite slow in rolling out
+ExecStart=/usr/local/bin/cm-verifier --namespace cert-manager --timeout 15m
+ExecStart=/usr/local/bin/kubectl -n cert-manager apply -f /etc/rancher/k3s/hvp/cert-manager-cachain.yaml
+#ExecStart=/usr/local/bin/kubectl -n cert-manager wait --timeout=${ACTIONS_TIMEOUT} --for condition="established" -f /etc/rancher/k3s/hvp/cert-manager-cachain.yaml
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_COREDNSK8SGATEWAY_VERSION}" != "x" && /usr/local/bin/kubectl apply -f /etc/rancher/k3s/hvp/customcoredns-kubenodes-rbac.yaml || true'
+# TODO: determine whether the nodes OS can use this DNS service too and modify the OS configuration accordingly (/etc/hosts and /etc/NetworkManager/system-connections/*.nmconnection)
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_COREDNSK8SGATEWAY_VERSION}" != "x" && /usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} externaldns k8s_gateway/k8s-gateway --create-namespace --namespace external-coredns --version ${INSTALL_COREDNSK8SGATEWAY_VERSION} --set image.tag=${INSTALL_COREDNSCUSTOM_VERSION} --values /etc/rancher/k3s/hvp/customcoredns-values.yaml || true'
+ExecStart=/usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} nginx ingress-nginx/ingress-nginx --create-namespace --namespace nginx-system --version ${INSTALL_NGINX_VERSION} --values /etc/rancher/k3s/hvp/nginx-values.yaml
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_OPENEBSLOCAL_VG}${INSTALL_OPENEBSREPLICATED_DISK}" != "x" && /usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} openebs openebs/openebs --create-namespace --namespace openebs --version ${INSTALL_OPENEBS_VERSION} --values /etc/rancher/k3s/hvp/openebs-values.yaml || true'
+#ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_OPENEBSLOCAL_VG}" != "x" && /usr/local/bin/kubectl -n openebs wait --timeout=${ACTIONS_TIMEOUT} --for condition="established" -f /etc/rancher/k3s/hvp/openebs-localpv-config.yaml || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_OPENEBSREPLICATED_DISK}" != "x" && ( for node_name in $(/usr/local/bin/kubectl get nodes -o custom-columns=NAME:.metadata.name --no-headers); do /usr/local/bin/kubectl label node $$node_name openebs.io/engine=mayastor ; done ) || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_OPENEBSREPLICATED_DISK}" != "x" && /usr/local/bin/kubectl -n openebs apply -f /etc/rancher/k3s/hvp/openebs-mayastor-config.yaml || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_OPENEBSREPLICATED_DISK}" != "x" && /usr/local/bin/kubectl -n openebs wait --timeout=${ACTIONS_TIMEOUT} --for condition="established" -f /etc/rancher/k3s/hvp/openebs-mayastor-config.yaml || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_HEADLAMP_VERSION}" != "x" && /usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} headlamp headlamp/headlamp --namespace kube-system --version ${INSTALL_HEADLAMP_VERSION} --values /etc/rancher/k3s/hvp/headlamp-values.yaml || true'
+ExecStart=/usr/bin/bash -c '/usr/bin/test "x${INSTALL_MIRRORS_VERSION}" != "x" && /usr/local/bin/helm upgrade --install --force --dependency-update --atomic --timeout ${ACTIONS_TIMEOUT} mirrors kts/mirrors --create-namespace --namespace mirrors-system --version ${INSTALL_MIRRORS_VERSION} || true'
+# Note: confirming that execution was successfully completed - running again will require manual removing
+ExecStartPost=/usr/bin/touch /var/lib/%N.stamp
+# Note: removing explicit permission to run - running again will require manual enabling
+ExecStartPost=/usr/bin/rm -f /etc/sysconfig/configure-k8s.allowed
+# Note: removing custom label from all nodes to allow kured-based reboots and SUC-based K3s upgrades to proceeed
+ExecStartPost=/usr/local/bin/kubectl label nodes --all --overwrite hvp.io/k8s-upgrade-
+
+[Install]
+WantedBy=multi-user.target

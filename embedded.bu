@@ -52,11 +52,13 @@ systemd:
         RequiredBy=default.target
 passwd:
   users:
-    - name: instadmin
+    - name: __HVP_INSTADMIN_USERNAME_HVP__
       gecos: Installation Management Account
+      password_hash: __HVP_INSTADMIN_PASSWORD_HASH_HVP__
+      ssh_authorized_keys:
+          - __HVP_INSTADMIN_SSH_PUBKEY_HVP__
       groups:
           - sudo
           - wheel
-      ssh_authorized_keys:
-          - ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBABuG9cJmQajdDokyk0C/v2bla9Z5TPJTBU0iLVQMyyUbvP+NHb0TKN3Mwex+M0bPA+LVEbgj+6gWw+yf/8CR3p3hACiiEu4qgFihXJdP69DBCv2zU/noDj6xN08m3+P9iwK/YdxQ4q2EpAqVX7B+r1sYypttXrUF64R0vLXoz6+WtQOdQ== root@twilight.mgmt.private
-      password_hash: "$6$9KNiJU4z0CxJ1x4B$OSBoCy.1BEt54IpfHP78M1W24g9oMQf5uDWnnEBtyAT0mRDh3TiermE5ymOswlWVvrxqCDHvjOgphupLVTiVT/"
+    - name: root
+      password_hash: __HVP_INSTROOT_PASSWORD_HASH_HVP__

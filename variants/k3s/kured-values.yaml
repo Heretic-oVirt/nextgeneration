@@ -1,0 +1,11 @@
+# Configuration file for KUbernetes REboot Daemon
+# Note: the following is meant to reboot after a SUC-mediated Fedora CoreOS update has been completed on a node but manual rpm-ostree actions could trigger it too
+# TODO: make reboot days/time configurable
+configuration:
+  useRebootSentinelHostPath: false
+  rebootSentinelCommand: "/etc/rancher/k3s/hvp/need-reboot.sh"
+  #rebootDays:
+  #  - su
+  startTime: "18:00"
+  endTime: "23:00"
+  timeZone: "__HVP_TIMEZONE_HVP__"

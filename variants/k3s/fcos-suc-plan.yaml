@@ -1,0 +1,24 @@
+# Configuration file for Fedora CoreOS upgrade using System Update Controller
+# TODO: Find a better node selection logic - ideally should target only Fedora CoreOS nodes but the osImage info is not a label
+---
+apiVersion: upgrade.cattle.io/v1
+kind: Plan
+metadata:
+  name: fcos
+  namespace: system-upgrade
+spec:
+  concurrency: 1
+  exclusive: true
+  cordon: false
+  nodeSelector:
+    matchExpressions:
+      - {key: kubernetes.io/os, operator: In, values: ["linux"]}
+  serviceAccountName: system-upgrade
+  secrets:
+    - name: fcos
+      path: /host/run/system-upgrade/secrets/fcos
+  version: fcos
+  upgrade:
+    image: quay.io/fedora/fedora-coreos:__HVP_CURRENT_FCOS_VERSION_HVP__
+    command: ["chroot", "/host"]
+    args: ["sh", "/run/system-upgrade/secrets/fcos/upgrade.sh"]

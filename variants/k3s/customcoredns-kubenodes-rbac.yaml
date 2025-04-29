@@ -1,0 +1,23 @@
+# RBAC configuration for custom CoreDNS service
+# Note: the k8s_gateway Helm chart gives proper RBAC permissions only for k8s_gateway actions - we must manually cater for kubenodes needs here
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubenodes-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubenodes-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: externaldns-k8s-gateway
+  namespace: external-coredns
+roleRef:
+  kind: ClusterRole
+  name: kubenodes-cluster-role
+  apiGroup: rbac.authorization.k8s.io

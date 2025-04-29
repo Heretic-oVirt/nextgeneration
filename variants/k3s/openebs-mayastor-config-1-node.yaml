@@ -1,0 +1,20 @@
+# Storage class and disk pool configuration for OpenEBS Mayastor on a 1-node cluster
+apiVersion: "openebs.io/v1beta2"
+kind: DiskPool
+metadata:
+  name: pool-on-node-0
+  namespace: openebs
+spec:
+  node: __HVP_NODE_ZERO_HVP__
+  disks: ["__HVP_REPLICATEDST_DISKNAME_HVP__"]
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: openebs-mayastor
+parameters:
+  protocol: "nvmf"
+  repl: "__HVP_REPLICA_NUMBER_HVP__"
+  thin: "true"
+  fsType: "xfs"
+provisioner: io.openebs.csi-mayastor

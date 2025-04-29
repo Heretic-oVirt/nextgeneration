@@ -1,0 +1,22 @@
+# Configuration values for OpenEBS
+ndm:
+  enabled: false
+localpv:
+  enabled: false
+zfs-localpv:
+  enabled: false
+lvm-localpv:
+  enabled: __HVP_LOCALST_ENABLED_HVP__
+mayastor:
+  enabled: __HVP_REPLICATEDST_ENABLED_HVP__
+engines:
+  local:
+    hostpath:
+      enabled: false
+    lvm:
+      enabled: __HVP_LOCALST_ENABLED_HVP__
+    zfs:
+      enabled: false
+  replicated:
+    mayastor:
+      enabled: __HVP_REPLICATEDST_ENABLED_HVP__

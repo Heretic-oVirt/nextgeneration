@@ -1,0 +1,4 @@
+# Configuration values for NGiNX
+controller:
+  ingressClassResource:
+    default: true

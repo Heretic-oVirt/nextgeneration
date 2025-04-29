@@ -1,5 +1,9 @@
 # Set default parameters
 # Note: to influence node type selection logic add hvp_nodetype=XXX where XXX is one of standard*, installer
+
+variant_type="KVM"
+variant_version="2024120801"
+
 # Packages and kernel arguments to be removed/replaced/added
 default_removepkgs="nfs-utils-coreos"
 default_replacepkgs="ncurses ncurses-base ncurses-libs"
@@ -12,18 +16,22 @@ default_masksvcs=""
 default_disablesvcs=""
 default_enablesvcs="libvirtd.socket podman.socket podman.service cockpit.socket mgmt.service"
 # Custom parameters
-default_nodetype="standard"
+# Note: since these are evaluated after the usual embedded values, we take care of setting them only if undefined above
+[ -z "${default_nodetype+x}" ] && default_nodetype="standard"
 
 function pre_install_hook_custom_actions() {
+	echo "pre_install_hook_custom_actions function for variant ${variant_type} version ${variant_version} starting"
 	# Determine node type
 	given_nodetype=$(sed -n -e 's/^.*hvp_nodetype=\(\S*\).*$/\1/p' /proc/cmdline)
 	if [ -z "${given_nodetype}" ]; then
 		given_nodetype="${default_nodetype}"
 	fi
-
+	# Note: network-related parameters demanded to post_install_hook_custom_actions to let the built-in network autoconfiguration happen first
+	echo "pre_install_hook_custom_actions function for variant ${variant_type} version ${variant_version} exiting"
 }
 
 function post_install_hook_custom_actions() {
+	echo "post_install_hook_custom_actions function for variant ${variant_type} version ${variant_version} starting"
 	# Specialize installer/standard node
 	case "${given_nodetype}" in
 		installer)
@@ -57,4 +65,6 @@ function post_install_hook_custom_actions() {
 	chown root:root "/mnt/${ostree_path}/etc/yum.repos.d/hvp.repo"
 	chmod 644 "/mnt/${ostree_path}/etc/yum.repos.d/hvp.repo"
 
+	echo "post_install_hook_custom_actions function for variant ${variant_type} version ${variant_version} exiting"
 }
+

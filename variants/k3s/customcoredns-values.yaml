@@ -1,0 +1,50 @@
+# Configuration values for custom CoreDNS service
+# Note: we are using a custom build of CoreDNS which includes the k8s_gateway and kubenodes plugins - see https://github.com/wittenbude/coredns
+# Note: the image tag is specified on the Helm commandline in order to allow customizing it by editing /etc/sysconfig/k8s-addons as for all other high-level settings
+# TODO: the service/ingress/node self-generated DNS entries cannot be queried by DNS clients - troubleshoot and fix
+image:
+  registry: ghcr.io
+  repository: wittenbude/coredns
+
+# Delegated domain for k8s_gateway
+domain: __HVP_DOMAINNAME_HVP__
+
+# Limit what kind of resources to watch in k8s_gateway, e.g. watchedResources: ["Ingress"]
+watchedResources: ["Ingress", "Service"]
+
+# Enabled fallthrough for k8s_gateway
+fallthrough:
+  enabled: true
+
+# Optional plugins that will be enabled in the zone
+# Note: these are appended after k8s_gateway and since hosts is configured without fallthrough, the delegated domain will not be further forwarded for resolution
+extraZonePlugins:
+  - name: kubeapi
+  - name: kubenodes
+    parameters: __HVP_DOMAINNAME_HVP__
+    configBlock: |-
+      external
+      fallthrough
+  - name: hosts
+    configBlock: |-
+      __HVP_CONTROL_PLANE_IP_HVP__ k8sapi.__HVP_DOMAINNAME_HVP__
+  - name: log
+  - name: errors
+  # Serves a /health endpoint on :8080, required for livenessProbe
+  - name: health
+    configBlock: |-
+      lameduck 5s
+  # Serves a /ready endpoint on :8181, required for readinessProbe
+  - name: ready
+  # Serves a /metrics endpoint on :9153, required for serviceMonitor
+  - name: prometheus
+    parameters: 0.0.0.0:9153
+  - name: cache
+  - name: forward
+    parameters: . __HVP_NAMESERVERS_HVP__
+  - name: loop
+  - name: reload
+  - name: loadbalance
+
+service:
+  loadBalancerIP: __HVP_DNS_IP_HVP__

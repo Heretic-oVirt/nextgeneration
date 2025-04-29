@@ -1,0 +1,8 @@
+# Address parameters configmap for Kube-VIP Cloud Controller
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubevip
+  namespace: kube-vip-system
+data:
+  range-global: __HVP_SERVICES_IP_RANGE_HVP__

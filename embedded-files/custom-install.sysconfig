@@ -1,9 +1,9 @@
 # Built-in variable defaults for HVP custom CoreOS installation procedure (pre/inst/post scripts)
-# Embedded Ignition file location
-embedded_ign_source="/run/media/iso/live-files/node.ign"
+# Ignition file location
+default_ign_source="/run/media/iso/live-files/node.ign"
 # List of configuration fragments (file names) to be retrieved (in order) from the same place where the Ignition file is coming from
 # Note: if the Ignition is retrieved from network, then a further file name hvp_parameters_xxxxxxxxxxxx.sh is appended to this list (with xxxxxxxxxxxx being the MAC address of the NIC used to retrieve the Ignition file)
-ign_custom_frags="hvp_parameters.sh"
+default_ign_custom_frags="hvp_parameters.sh hvp_parameters_variant.sh"
 # Disk initialization strategy, one of none, all, os, extra, used*
 default_disk_wiping="used"
 # OS-disk assignment strategy, one of first, last, smallest*, last-smallest, sdX (with sdX being the actual device basename)
@@ -14,12 +14,32 @@ default_extradisk_localst="largest"
 default_extradisk_replicatedst="smallest"
 # Timezone, one of the recognized timezones in /usr/share/zoneinfo/
 default_timezone="UTC"
+# Keyboard layout, one of the maps available in /usr/lib/kbd/keymaps/xkb/
+default_kblayout="us"
 # Hostname assignment logic, one of fixed, automated*
 default_hostname_assignment="automated"
 # Hostname for fixed or prefix for automated hostname generation
 default_hostname="node"
-# Keyboard layout, one of the maps available in /usr/lib/kbd/keymaps/xkb/
-default_kblayout="us"
+# DNS domain name to be appended to hostname
+default_domainname="lan.private"
+# NetworkManager detected configuration management
+default_persistnmconf="true"
+default_enactnmconf="false"
+# NIC bonding
+default_bondmode="activepassive"
+default_bondopts="mode=active-backup;miimon=100"
+# DNS servers
+default_nameservers="1.1.1.1"
+# NTP servers
+default_ntpservers=""
+# Range of IP addresses for configuration discovery
+default_rangeipaddr=""
+# Admin username
+default_admin_username="hvpadmin"
+# Admin password hash
+default_admin_password='$6$EngnSSn5$DiapvymRZ579Tt6pNBgRwT7D7PTDzWkT3ffKUO1U1qMloraFsg7jI6WfdM1oddxDvW9AFmBMKNOG1ylW7KiFU.'
+# Admin SSH publick key
+default_admin_sshpubkey='ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBABuG9cJmQajdDokyk0C/v2bla9Z5TPJTBU0iLVQMyyUbvP+NHb0TKN3Mwex+M0bPA+LVEbgj+6gWw+yf/8CR3p3hACiiEu4qgFihXJdP69DBCv2zU/noDj6xN08m3+P9iwK/YdxQ4q2EpAqVX7B+r1sYypttXrUF64R0vLXoz6+WtQOdQ== root@twilight.mgmt.private'
 # Packages and kernel arguments to remove/replace/add
 default_removepkgs=""
 default_replacepkgs=""

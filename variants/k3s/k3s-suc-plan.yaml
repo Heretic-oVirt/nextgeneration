@@ -1,0 +1,57 @@
+# Configuration file for K3s upgrade using System Update Controller
+---
+apiVersion: upgrade.cattle.io/v1
+kind: Plan
+metadata:
+  name: k3s-server
+  namespace: system-upgrade
+spec:
+  concurrency: 1
+  exclusive: true
+  cordon: true
+  nodeSelector:
+    matchExpressions:
+    - key: node-role.kubernetes.io/control-plane
+      operator: In
+      values:
+      - "true"
+    - key: hvp.io/k8s-upgrade
+      operator: DoesNotExist
+  serviceAccountName: system-upgrade
+  secrets:
+    - name: k3s
+      path: /host/run/system-upgrade/secrets/k3s
+  version: k3s
+  upgrade:
+    image: quay.io/fedora/fedora-coreos:__HVP_CURRENT_FCOS_VERSION_HVP__
+    command: ["chroot", "/host"]
+    args: ["sh", "/run/system-upgrade/secrets/k3s/upgrade.sh"]
+---
+apiVersion: upgrade.cattle.io/v1
+kind: Plan
+metadata:
+  name: k3s-agent
+  namespace: system-upgrade
+spec:
+  concurrency: 1
+  exclusive: true
+  cordon: true
+  nodeSelector:
+    matchExpressions:
+    - key: node-role.kubernetes.io/control-plane
+      operator: DoesNotExist
+    - key: hvp.io/k8s-upgrade
+      operator: DoesNotExist
+  serviceAccountName: system-upgrade
+  secrets:
+    - name: k3s
+      path: /host/run/system-upgrade/secrets/k3s
+  version: k3s
+  prepare:
+    command: ["chroot", "/host"]
+    args: ["sh", "/run/system-upgrade/secrets/k3s/prepare.sh"]
+    image: quay.io/fedora/fedora-coreos:__HVP_CURRENT_FCOS_VERSION_HVP__
+  upgrade:
+    image: quay.io/fedora/fedora-coreos:__HVP_CURRENT_FCOS_VERSION_HVP__
+    command: ["chroot", "/host"]
+    args: ["sh", "/run/system-upgrade/secrets/k3s/upgrade.sh"]

@@ -1,0 +1,11 @@
+# Configuration file for Kube-VIP Control Plane
+config:
+  address: "__HVP_CONTROL_PLANE_IP_HVP__"
+env:
+  cp_enable: "true"
+  vip_interface: "__HVP_MAIN_INTERFACE_HVP__"
+  lb_enable: "true"
+  vip_arp: "true"
+  vip_leaderelection: "true"
+  svc_enable: "true"
+  svc_election: "true"

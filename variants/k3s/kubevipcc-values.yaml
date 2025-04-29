@@ -1,0 +1,2 @@
+# Configuration values for Kube-VIP Cloud Controller
+configMapName: "kubevip"

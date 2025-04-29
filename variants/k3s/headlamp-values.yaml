@@ -1,0 +1,16 @@
+# Configuration values for Headlamp
+# Note: access to the web UI will need a token to be manually obtained from commandline with: kubectl -n kube-system create token headlamp
+replicaCount: __HVP_REPLICA_NUMBER_HVP__
+ingress:
+  enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: sub-ca-cluster-issuer
+  hosts:
+    - host: headlamp.__HVP_DOMAINNAME_HVP__
+      paths:
+      - path: /
+        type: ImplementationSpecific
+  tls:
+    - secretName: headlamp-cert
+      hosts:
+        - headlamp.__HVP_DOMAINNAME_HVP__

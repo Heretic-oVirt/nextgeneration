@@ -1,0 +1,15 @@
+# Storage class configuration for OpenEBS LocalPV-LVM
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: openebs-lvmpv
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+parameters:
+  storage: "lvm"
+  volgroup: "__HVP_LOCALST_VGNAME_HVP__"
+  fsType: "xfs"
+  allowVolumeExpansion: "true"
+  thinProvision: "true"
+provisioner: local.csi.openebs.io
+allowVolumeExpansion: true
